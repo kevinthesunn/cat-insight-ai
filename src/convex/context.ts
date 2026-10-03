@@ -11,7 +11,7 @@ import { groqAnswer } from "./memory/groq";
 import { isCrew } from "./store";
 import { buildGraph } from "./ops";
 
-type Ctx = { db: any; auth: any; runQuery: any; runMutation: any; scheduler: any };
+// helpers take the loose ctx shape (action/query ctx types differ)
 
 const INTENT_RULES: Array<[Intent, RegExp]> = [
   ["fault_help", /\b(fix|broken|not working|won'?t|whats wrong|what'?s wrong|problem|help|repair how|stuck|failing)\b/i],
@@ -26,7 +26,12 @@ function classifyIntent(question: string): Intent {
 }
 
 /** §17.4.2 anchor resolution — deterministic first; clarify rather than guess. */
-async function resolveAnchors(ctx: Ctx, question: string, ui: any, scope: ScopeCtx) {
+async function resolveAnchors(
+  ctx: any,
+  question: string,
+  ui: any,
+  scope: ScopeCtx,
+): Promise<{ anchors: string[]; clarification: { reason: string; options: Array<{ id: string; label: string }> } | null }> {
   const { nodes } = await buildGraph(ctx, { crew: scope.isCrew });
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
@@ -105,8 +110,22 @@ export const queryContext = action({
     const nodes = new Map<string, GNode>(graph.nodes.map((n) => [n.id, n as GNode]));
     const edges = graph.edges as unknown as GEdge[];
 
+    // fault_help focus: the signature the query is about (latest on the anchor's
+    // episodes, or the explicitly opened fault card). Episodes about other
+    // components of the same machine are distractors (§17.8.11).
+    let focusSignatureId: string | null = null;
+    {
+      const hadEps = edges
+        .filter((e) => e.edgeType === "HAD" && resolved.anchors.includes(e.sourceId))
+        .map((e) => nodes.get(e.targetId))
+        .filter((n): n is GNode => Boolean(n) && n!.type === "episode" && !n!.props?.superseded)
+        .sort((a, b) => (b!.props?.occurredAt as number ?? 0) - (a!.props?.occurredAt as number ?? 0));
+      const cardSig = edges.find((e) => e.edgeType === "FIX_FOR" && e.sourceId === ui_context?.faultCardId)?.targetId;
+      focusSignatureId = (cardSig as string | undefined) ?? hadEps[0]?.props?.signatureId as string | null ?? null;
+    }
+
     const runOnce = async (widen: string | null) => {
-      const rawItems = traverse({ edges, nodes, anchors: resolved.anchors, template, scope, now: Date.now(), widen });
+      const rawItems = traverse({ edges, nodes, anchors: resolved.anchors, template, scope, now: Date.now(), widen, focusSignatureId });
       const manifest = gate({
         rawItems, nodes, template, queryId: "pending", role: scope.role, intent, anchors: resolved.anchors, now: Date.now(),
         widened: Boolean(widen), widenReason: widen,
@@ -123,15 +142,17 @@ export const queryContext = action({
 
     const first = await groqAnswer(scope.role, question, packed).catch(() => null);
     let answer = first ? validateAnswer(first, manifest.items.map((i) => i.node_id)) : null;
-    if (answer?.ok && answer.answer.needs_more_context && !manifest.widened) {
-      const suggested = answer.answer.needs_more_context.suggested_template as Intent;
-      const canWiden = (POLICIES[intent].widen_to ?? []).includes(
-        answer.answer.needs_more_context.reason,
-      ) || suggested === intent;
+    const needsMore = answer?.ok ? answer.answer?.needs_more_context : null;
+    if (needsMore && !manifest.widened) {
+      const suggested = needsMore.suggested_template as Intent;
+      const canWiden =
+        (POLICIES[intent].widen_to ?? []).includes(needsMore.reason) ||
+        suggested === intent ||
+        (POLICIES[intent].widen_to ?? []).length > 0;
       // controlled widening: at most once, only along widen_to (§17.4.8)
-      if (canWiden || (POLICIES[intent].widen_to ?? []).length > 0) {
+      if (canWiden) {
         widened = true;
-        widenReason = answer.answer.needs_more_context.reason;
+        widenReason = needsMore.reason;
         ({ manifest, packed } = await runOnce(widenReason));
         const second = await groqAnswer(scope.role, question, packed).catch(() => null);
         answer = second ? validateAnswer(second, manifest.items.map((i) => i.node_id)) : null;
@@ -142,7 +163,7 @@ export const queryContext = action({
     }
     if (answer) flagged = answer.flagged;
 
-    const manifestId = await ctx.runMutation(api.context.logManifest, {
+    const manifestId: Id<"manifests"> = await ctx.runMutation(api.context.logManifest, {
       role: scope.role,
       intent,
       anchors: resolved.anchors as Id<"assets">[],
@@ -199,6 +220,11 @@ export const assetBranch = query({
     const template = POLICIES[(intent as Intent) in POLICIES ? (intent as Intent) : "fault_help"];
     const graph = await buildGraph(ctx, { crew: false });
     const nodes = new Map<string, GNode>(graph.nodes.map((n) => [n.id, n as GNode]));
+    const hadEps = (graph.edges as unknown as GEdge[])
+      .filter((e) => e.edgeType === "HAD" && e.sourceId === assetId)
+      .map((e) => nodes.get(e.targetId))
+      .filter((n): n is GNode => Boolean(n) && n!.type === "episode")
+      .sort((a, b) => (b!.props?.occurredAt as number ?? 0) - (a!.props?.occurredAt as number ?? 0));
     const rawItems = traverse({
       edges: graph.edges as unknown as GEdge[],
       nodes,
@@ -206,6 +232,7 @@ export const assetBranch = query({
       template,
       scope: { role: user.role ?? "engineer", allowedSiteIds: null, ownSiteId: null, isCrew: false },
       now: Date.now(),
+      focusSignatureId: hadEps[0]?.props?.signatureId as string | null ?? null,
     });
     const manifest = gate({
       rawItems, nodes, template, queryId: "debug", role: user.role ?? "engineer",
@@ -220,6 +247,4 @@ export const assetBranch = query({
   },
 });
 
-// silence unused ctx typing helper
-export type _Ctx = Ctx;
 void mutation;

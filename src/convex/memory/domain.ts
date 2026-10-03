@@ -76,6 +76,7 @@ export type FixCardLike = {
   distinctSites: number;
   lastUsedAt?: number | null;
   status: "active" | "retired" | "needs_review";
+  guidanceNote?: string | null;
 };
 
 // ---- §7 signature normalization ----
@@ -402,10 +403,8 @@ export function buildFixCardSpecs(input: {
     const members = input.repairs
       .filter((r) => r.signatureId === sig.id)
       .map((r) => ({ r, e: episodeById.get(r.episodeId) }))
-      .filter(
-        (m): m is { r: RepairLike; e: EpisodeLike } =>
-          Boolean(m.e) && !m.e.supersedes && m.e.kind === "repair",
-      )
+      .flatMap((m) => (m.e ? [{ r: m.r, e: m.e }] : []))
+      .filter((m) => !m.e.supersedes && m.e.kind === "repair")
       .sort((a, b) => a.e.occurredAt - b.e.occurredAt);
     if (members.length === 0) continue;
 

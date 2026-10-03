@@ -2,49 +2,64 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { HardHat, LogOut, Wrench, UserCog, Users, Repeat } from "lucide-react";
+import { HardHat, LogOut, UserCog, Users, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import WorkerView from "@/components/WorkerView";
-import ManagerView from "@/components/ManagerView";
-import EngineerView from "@/components/EngineerView";
+import CrewApp from "@/components/CrewApp";
+import EngineerDashboard from "@/components/EngineerDashboard";
 
 export const ROLE_META: Record<string, { label: string; cls: string }> = {
-  worker: { label: "Site crew", cls: "bg-amber-100 text-amber-900 border-amber-200" },
+  operator: { label: "Operator", cls: "bg-amber-100 text-amber-900 border-amber-200" },
+  technician: { label: "Technician", cls: "bg-emerald-100 text-emerald-900 border-emerald-200" },
   manager: { label: "Site manager", cls: "bg-sky-100 text-sky-900 border-sky-200" },
   engineer: { label: "CAT engineer", cls: "bg-stone-200 text-stone-800 border-stone-300" },
+  admin: { label: "Admin", cls: "bg-stone-200 text-stone-800 border-stone-300" },
 };
 
+export function Brand({ light = false }: { light?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <span className="flex size-9 items-center justify-center rounded-lg bg-stone-900 shadow-soft">
+        <Wrench className="size-5 text-amber-400" />
+      </span>
+      <span className={`font-display text-lg font-bold tracking-tight ${light ? "text-white" : "text-foreground"}`}>
+        SiteMemory
+      </span>
+    </span>
+  );
+}
+
+const PICKER_ROLES = [
+  { id: "operator", icon: HardHat, title: "I operate machines", desc: "Voice-first. Report a problem, get the fix that worked." },
+  { id: "technician", icon: Wrench, title: "I'm a technician", desc: "Log repairs and confirm what worked on this machine." },
+  { id: "manager", icon: Users, title: "I run a site", desc: "Open issues across my site, with evidence." },
+  { id: "engineer", icon: Wrench, title: "I'm CAT engineering", desc: "Cross-site patterns, evidence, and the status workflow." },
+] as const;
+
 function RolePicker({ onPick }: { onPick: (role: string) => void }) {
-  const roles = [
-    { id: "worker", icon: HardHat, title: "I work on site", desc: "Big buttons. Alerts and tasks for my crew." },
-    { id: "manager", icon: Users, title: "I run the site", desc: "The full dashboard — everything going on." },
-    { id: "engineer", icon: Wrench, title: "I'm CAT engineering", desc: "Investigate machine issues, send quick fixes." },
-  ];
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
-          <Brand />
-          <h1 className="mt-6 font-display text-2xl font-semibold tracking-tight">How do you use the job site?</h1>
-          <p className="mt-1 text-sm text-muted-foreground">CATerra shapes itself around your day. You can switch later.</p>
+          <div className="flex justify-center"><Brand /></div>
+          <h1 className="mt-6 font-display text-2xl font-semibold tracking-tight">How do you work?</h1>
+          <p className="mt-1 text-sm text-muted-foreground">SiteMemory shapes itself around your day. You can switch later.</p>
         </div>
         <div className="grid gap-3">
-          {roles.map((r) => (
+          {PICKER_ROLES.map((r) => (
             <button
               key={r.id}
               onClick={() => onPick(r.id)}
-              className="group flex items-center gap-4 rounded-xl border border-border bg-card p-5 text-left shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lift"
+              className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 text-left shadow-soft transition-all hover:-translate-y-0.5 hover:border-amber-400/60 hover:shadow-lift"
             >
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-foreground">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-900">
                 <r.icon className="size-6" />
               </span>
               <span className="flex-1">
                 <span className="block font-semibold">{r.title}</span>
                 <span className="block text-sm text-muted-foreground">{r.desc}</span>
               </span>
-              <Repeat className="size-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
             </button>
           ))}
         </div>
@@ -53,39 +68,27 @@ function RolePicker({ onPick }: { onPick: (role: string) => void }) {
   );
 }
 
-export function Brand({ light = false }: { light?: boolean }) {
-  return (
-    <span className="inline-flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-lg bg-primary shadow-soft">
-        <HardHat className="size-5 text-primary-foreground" />
-      </span>
-      <span className={`font-display text-lg font-bold tracking-tight ${light ? "text-white" : "text-foreground"}`}>
-        CATerra
-      </span>
-    </span>
-  );
-}
-
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const data = useQuery(api.app.overview);
-  const seed = useMutation(api.app.seedIfEmpty);
-  const pickRole = useMutation(api.app.pickRole);
+  const seed = useMutation(api.seed.seedSiteMemory);
+  const setRole = useMutation(api.ops.setRole);
+  const boot = useQuery(api.store.crewBootstrap);
   const seeded = useRef(false);
   const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
-    if (data && data.sites.length === 0 && !seeded.current) {
+    if (!boot || seeded.current) return;
+    if (boot.machines.length === 0) {
       seeded.current = true;
       void seed();
     }
-  }, [data, seed]);
+  }, [boot, seed]);
 
-  if (!data || !user) {
+  if (!user || !boot) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-sm text-muted-foreground">Warming up the memory layer…</div>
+        <div className="animate-pulse text-sm text-muted-foreground">Loading the memory layer…</div>
       </main>
     );
   }
@@ -95,15 +98,12 @@ export default function Dashboard() {
     return (
       <RolePicker
         onPick={(r) => {
-          void pickRole({ role: r });
+          void setRole({ role: r as never });
           toast.success("Welcome aboard.");
         }}
       />
     );
   }
-
-  const mySite = data.sites.find((s) => s._id === user.siteId);
-  const shared = { user, data, role };
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,7 +111,7 @@ export default function Dashboard() {
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-4 px-4 sm:px-6">
           <Brand />
           <span className="hidden text-sm text-muted-foreground sm:block">
-            {mySite ? mySite.name : role === "engineer" ? "All job sites" : "All job sites"}
+            {boot.site ? boot.site.name : "All sites"}
           </span>
           <span className={`ml-auto hidden rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-block ${ROLE_META[role].cls}`}>
             {ROLE_META[role].label}
@@ -124,8 +124,9 @@ export default function Dashboard() {
               disabled={switching}
               onClick={() => {
                 setSwitching(true);
-                const next = role === "worker" ? "manager" : role === "manager" ? "engineer" : "worker";
-                void pickRole({ role: next }).finally(() => {
+                const order = ["operator", "technician", "manager", "engineer"];
+                const next = order[(order.indexOf(role) + 1) % order.length];
+                void setRole({ role: next as never }).finally(() => {
                   setSwitching(false);
                   toast.info(`Viewing as ${ROLE_META[next].label}`);
                 });
@@ -149,7 +150,11 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
-      {role === "worker" ? <WorkerView {...shared} /> : role === "engineer" ? <EngineerView {...shared} /> : <ManagerView {...shared} />}
+      {role === "operator" || role === "technician" ? (
+        <CrewApp role={role} />
+      ) : (
+        <EngineerDashboard role={role} />
+      )}
     </div>
   );
 }

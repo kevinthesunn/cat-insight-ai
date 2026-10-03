@@ -35,11 +35,11 @@ export async function siteAliases(ctx: Ctx): Promise<Map<string, { alias: string
 }
 
 async function latestSnapshot(ctx: Ctx, machineId: string, now: number) {
-  const snaps = await ctx.db
+  const snaps: any[] = await ctx.db
     .query("machineStateSnapshots")
-    .withIndex("by_machine", (q) => q.eq("machineId", machineId as Id<"machines">))
+    .withIndex("by_machine", (q: any) => q.eq("machineId", machineId as Id<"machines">))
     .collect();
-  return snaps.filter((s) => s.capturedAt <= now).sort((a, b) => b.capturedAt - a.capturedAt)[0] ?? null;
+  return snaps.filter((s: any) => s.capturedAt <= now).sort((a: any, b: any) => b.capturedAt - a.capturedAt)[0] ?? null;
 }
 
 /** §5/§11 find_fixes — the crew loop (acceptance 2). */
@@ -210,28 +210,23 @@ export const machineHistory = query({
   },
 });
 
-/** Crew poll after send: pipeline status + fixes (uses embeddings while pending — acceptance 2). */
+/** Crew poll after send: pipeline status (fixes come from findFixes in parallel). */
 export const episodeStatus = query({
-  args: { episodeId: v.id("episodes"), now: v.number() },
-  handler: async (ctx, { episodeId, now }) => {
+  args: { episodeId: v.id("episodes") },
+  handler: async (ctx, { episodeId }) => {
     const user = await me(ctx);
     if (!user) return null;
     const ep = await ctx.db.get(episodeId);
     if (!ep) return null;
     const crew = isCrew(user);
-    const fixes = await ctx.runQuery(api.store.findFixes, {
-      machineId: ep.machineId,
-      episodeId,
-      now,
-    });
     return {
+      machineId: ep.machineId,
       extractionStatus: ep.extractionStatus,
       structured: crew
         ? { component: (ep.structured as any)?.component, severity: (ep.structured as any)?.severity }
         : ep.structured,
       signatureId: ep.signatureId,
       flagged: ep.flaggedForEngineer ?? false,
-      fixes,
     };
   },
 });

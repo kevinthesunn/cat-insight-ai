@@ -87,6 +87,22 @@ export const recordEpisode = mutation({
   },
 });
 
+/** §3.2: release → transcript shown → Send. Client-side preview transcription. */
+export const transcribePreview = action({
+  args: {
+    audioBase64: v.string(),
+    mimeType: v.optional(v.string()),
+    machineClass: v.string(),
+  },
+  handler: async (ctx, { audioBase64, mimeType, machineClass }) => {
+    void ctx;
+    void machineClass; // STT vocab hint seam (DECISIONS D2)
+    const text = await groqTranscribe(audioBase64, mimeType ?? "audio/webm");
+    if (!text) throw new Error("We couldn't hear anything — try again a little louder.");
+    return { text };
+  },
+});
+
 /** Read-only view the action uses (actions have no db handle). */
 export const episodeForProcessing = query({
   args: { episodeId: v.id("episodes") },
@@ -210,7 +226,7 @@ export const finalizeExtraction = mutation({
         embedding: embed,
       },
     );
-    let signatureId = matchedId;
+    let signatureId = matchedId as Id<"faultSignatures"> | null;
     if (!signatureId) {
       signatureId = await ctx.db.insert("faultSignatures", {
         machineClass: machine.machineClass,
@@ -280,25 +296,23 @@ async function flipRecurrences(
   machine: { _id: string; machineClass: string },
   signatureId: string,
 ) {
-  const sig = await ctx.db.get(signatureId);
+  const sig: any = await ctx.db.get(signatureId);
   if (!sig) return;
   const window = recurrenceWindow(machine.machineClass, sig.component);
-  const machineEpisodes = await ctx.db
+  const machineEpisodes: any[] = await ctx.db
     .query("episodes")
-    .withIndex("by_machine", (q) => q.eq("machineId", machine._id))
+    .withIndex("by_machine", (q: any) => q.eq("machineId", machine._id))
     .collect();
-  const byId = new Map(machineEpisodes.map((e) => [e._id, e]));
-  const newest = byId.get(
-    [...machineEpisodes]
-      .filter((e) => e.signatureId === signatureId)
-      .sort((a, b) => b.occurredAt - a.occurredAt)[0]?._id,
-  );
+  const byId = new Map<string, any>(machineEpisodes.map((e: any) => [e._id as string, e]));
+  const newest = [...machineEpisodes]
+    .filter((e: any) => e.signatureId === signatureId)
+    .sort((a: any, b: any) => b.occurredAt - a.occurredAt)[0];
   if (!newest) return;
   for (const priorEp of machineEpisodes) {
     if (priorEp.kind !== "repair" || priorEp.signatureId !== signatureId) continue;
-    const priorRepairs = await ctx.db
+    const priorRepairs: any[] = await ctx.db
       .query("repairs")
-      .withIndex("by_episode", (q) => q.eq("episodeId", priorEp._id))
+      .withIndex("by_episode", (q: any) => q.eq("episodeId", priorEp._id))
       .collect();
     for (const rep of priorRepairs) {
       if (rep.outcomeStatus !== "pending") continue;
@@ -336,16 +350,16 @@ export const consolidateSignature = action({
       let text: { title: string; steps: string[]; caveats: string | null } | null = null;
       if (useLLM && spec.needsLLMText) {
         text = await groqCardText(
-          spec.evidence.map((episodeId) => {
-            const e = input.episodes.find((x) => x.id === episodeId);
-            const r = input.repairs.find((x) => x.episodeId === episodeId);
-            const m = input.machines.find((x) => x.id === e?.machineId);
+          spec.evidence.map((episodeId: string) => {
+            const e = (input.episodes as any[]).find((x: any) => x.id === episodeId);
+            const r = (input.repairs as any[]).find((x: any) => x.episodeId === episodeId);
+            const m = (input.machines as any[]).find((x: any) => x.id === e?.machineId);
             return {
               action: r?.actionTaken ?? "",
-              parts: (r?.parts ?? []).map((p) => p.partNumber ?? p.name),
+              parts: ((r?.parts ?? []) as any[]).map((p: any) => p.partNumber ?? p.name),
               outcome: r?.outcomeStatus ?? "unknown",
               unit: m?.unitNumber ?? m?.serialNumber ?? "unit",
-              site: input.siteNames[m?.siteId ?? ""] ?? "site",
+              site: (input.siteNames as any)[m?.siteId ?? ""] ?? "site",
             };
           }),
         );
@@ -354,15 +368,15 @@ export const consolidateSignature = action({
         signatureId,
         title: text?.title ?? spec.title,
         steps: text?.steps ?? spec.steps,
-        caveats: text?.caveats ?? spec.caveats,
+        caveats: text?.caveats ?? spec.caveats ?? undefined,
         heldCount: spec.heldCount,
         recurredCount: spec.recurredCount,
         pendingCount: spec.pendingCount,
         distinctUnits: spec.distinctUnits,
         distinctSites: spec.distinctSites,
-        lastUsedAt: spec.lastUsedAt,
+        lastUsedAt: spec.lastUsedAt ?? undefined,
         status: spec.status,
-        evidence: spec.evidence,
+        evidence: spec.evidence as Id<"episodes">[],
       });
     }
   },
@@ -634,7 +648,7 @@ export const runPatternScan = mutation({
       });
       if (!evalRes.raise && !evalRes.watch) continue;
       const open = openBySignature.get(sig._id);
-      let clusterId: string;
+      let clusterId: Id<"patternClusters">;
       if (open) {
         clusterId = open._id;
         await ctx.db.patch(clusterId, {
@@ -650,7 +664,7 @@ export const runPatternScan = mutation({
           updatedAt: nowTs,
         });
       } else {
-        clusterId = await ctx.db.insert("patternClusters", {
+        clusterId = (await ctx.db.insert("patternClusters", {
           signatureId: sig._id,
           windowStart: evalRes.windowStart,
           windowEnd: evalRes.windowEnd,
@@ -663,16 +677,16 @@ export const runPatternScan = mutation({
           status: "new",
           sharedHints: evalRes.hints,
           updatedAt: nowTs,
-        });
+        })) as Id<"patternClusters">;
       }
       // idempotent member sync
-      const existingMembers = await ctx.db
+      const existingMembers: any[] = await ctx.db
         .query("patternClusterMembers")
-        .withIndex("by_cluster", (q) => q.eq("clusterId", clusterId))
+        .withIndex("by_cluster", (q: any) => q.eq("clusterId", clusterId))
         .collect();
-      const have = new Set(existingMembers.map((m) => m.episodeId));
+      const have = new Set<string>(existingMembers.map((m: any) => m.episodeId as string));
       for (const epId of evalRes.memberIds) {
-        if (!have.has(epId as Id<"episodes">)) {
+        if (!have.has(epId)) {
           await ctx.db.insert("patternClusterMembers", {
             clusterId,
             episodeId: epId as Id<"episodes">,

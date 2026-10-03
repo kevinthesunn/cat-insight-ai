@@ -155,12 +155,10 @@ export function validateExtraction(
     ? (p.parts as Array<Record<string, unknown>>)
         .slice(0, 8)
         .map((part) => {
+          const claimed = String(part.part_number ?? "").trim();
           const pn =
-            typeof part.part_number === "string" && part.part_number.trim()
-              ? spokenParts.find(
-                  (c) =>
-                    c.toLowerCase() === part.part_number!.trim().toLowerCase(),
-                ) ?? null
+            claimed.length > 0
+              ? spokenParts.find((c) => c.toLowerCase() === claimed.toLowerCase()) ?? null
               : null;
           return { name: String(part.name ?? "part").slice(0, 80), part_number: pn };
         })

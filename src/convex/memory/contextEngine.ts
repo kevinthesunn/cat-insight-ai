@@ -27,10 +27,12 @@ export type Intent = "fault_help" | "asset_history" | "site_status" | "pattern_c
 
 // ---- §17.5 context_policies.yaml equivalent (validated at startup by ctx code) ----
 export type TemplateStep = {
-  from: "anchor" | "episodes" | "signatures" | "fix_cards" | "machines" | "clusters";
+  from: "anchor" | "episodes" | "signatures" | "fix_cards" | "machines" | "machine" | "clusters" | "component" | "system";
   edges: EdgeType[];
   limit: number;
   order?: "recency";
+  crossSite?: boolean; // widening may reach sibling units on other sites (redacted)
+  resetToAnchor?: boolean; // restart the frontier at the anchor nodes
   where?: {
     notSuperseded?: boolean;
     assetActive?: boolean;
@@ -53,7 +55,9 @@ const COMMON: Record<string, Template> = {
     intent: "fault_help",
     anchor: "machine",
     steps: [
-      { from: "anchor", edges: ["HAD"], limit: 12, order: "recency", where: { notSuperseded: true, assetActive: true, sameSiteAsAnchor: true } },
+      { from: "anchor", edges: ["CONTAINS"], limit: 8 },
+      { from: "component", edges: ["HAD"], limit: 12, order: "recency", where: { notSuperseded: true, assetActive: true, sameSiteAsAnchor: true } },
+      { from: "machine", resetToAnchor: true, edges: ["HAD"], limit: 12, order: "recency", where: { notSuperseded: true, assetActive: true, sameSiteAsAnchor: true } },
       { from: "episodes", edges: ["MATCHES"], limit: 5 },
       { from: "signatures", edges: ["FIX_FOR"], limit: 6, where: { notRetired: true } },
       { from: "fix_cards", edges: ["EVIDENCED_BY"], limit: 8, where: { notRetired: true } },
@@ -66,7 +70,9 @@ const COMMON: Record<string, Template> = {
     intent: "asset_history",
     anchor: "machine",
     steps: [
-      { from: "anchor", edges: ["HAD"], limit: 20, order: "recency", where: { notSuperseded: true, assetActive: true } },
+      { from: "anchor", edges: ["CONTAINS"], limit: 10 },
+      { from: "component", edges: ["HAD"], limit: 12, order: "recency", where: { notSuperseded: true, assetActive: true } },
+      { from: "machine", resetToAnchor: true, edges: ["HAD"], limit: 20, order: "recency", where: { notSuperseded: true, assetActive: true } },
       { from: "episodes", edges: ["MATCHES"], limit: 6 },
       { from: "signatures", edges: ["FIX_FOR"], limit: 4, where: { notRetired: true } },
     ],
@@ -154,6 +160,7 @@ export function traverse(input: {
   scope: ScopeCtx;
   now: number;
   widen?: string | null; // widen_to key
+  focusSignatureId?: string | null; // fault_help: episodes outside this fault are dropped
 }): ManifestItem[] {
   const { edges, nodes, template, scope, now } = input;
   const byNode = (id: string) => nodes.get(id);
@@ -180,10 +187,10 @@ export function traverse(input: {
       const occurredAt = node.props?.occurredAt as number | undefined;
       if (removedAt != null && occurredAt != null && removedAt < occurredAt) return false;
     }
-    if (w.sameSiteAsAnchor && !siteAllowed(frontierSiteId ?? node.props?.siteId)) return false;
+    if (w.sameSiteAsAnchor && !step.crossSite && !siteAllowed(frontierSiteId ?? node.props?.siteId)) return false;
     // scope first (§17.4.1): episodes/machines outside the user's sites are never fetched
     const nodeSite = node.props?.siteId;
-    if (node.type === "episode" || node.type === "machine") {
+    if (!step.crossSite && (node.type === "episode" || node.type === "machine")) {
       if (!siteAllowed(nodeSite)) return false;
     }
     void depth;
@@ -208,20 +215,31 @@ export function traverse(input: {
 
   const steps = [...template.steps];
   if (input.widen) {
-    // controlled widening: sibling units with the same signature + model (§17.4.8)
+    // controlled widening: sibling units with the same signature + model (§17.4.8);
+    // explicit, once, and redacted for crew roles
     steps.push({
       from: "signatures",
       edges: ["MATCHES"],
       limit: 10,
       order: "recency",
+      crossSite: true,
       where: { notSuperseded: true },
     });
   }
 
+  // fault_help is fault-scoped: episodes about other components on this machine
+  // are distractors and never enter the manifest (§17.8.11)
+  const focus = input.template.intent === "fault_help" ? input.focusSignatureId ?? null : null;
+
   const fromType = (stepFrom: TemplateStep["from"]) =>
-    ({ episodes: "episode", signatures: "signature", fix_cards: "fix_card", machines: "machine", clusters: "cluster" } as Record<string, string>)[stepFrom];
+    ({ episodes: "episode", signatures: "signature", fix_cards: "fix_card", machines: "machine", clusters: "cluster", component: "component", system: "system" } as Record<string, string>)[stepFrom];
 
   for (const step of steps) {
+    if (step.resetToAnchor) {
+      frontier = input.anchors
+        .filter((a) => byNode(a))
+        .map((a) => ({ id: a, siteId: byNode(a)?.props?.siteId, path: [], depth: 0, baseScore: 1 }));
+    }
     const next: typeof frontier = [];
     for (const f of frontier) {
       const fType = byNode(f.id)?.type;
@@ -244,6 +262,7 @@ export function traverse(input: {
         const target = byNode(nextId);
         if (!target) continue;
         if (template.never_include.includes(target.type)) continue;
+        if (focus && target.type === "episode" && target.props?.signatureId && target.props.signatureId !== focus) continue;
         if (!passesWhere(step, nextId, f.depth + 1, f.siteId)) continue;
         if (items.has(nextId)) continue;
         const score =
@@ -271,6 +290,39 @@ export function traverse(input: {
       ? next.sort((a, b) => (byNode(b.id)?.props?.occurredAt as number ?? 0) - (byNode(a.id)?.props?.occurredAt as number ?? 0))
       : next;
     frontier = ordered.slice(0, step.limit);
+  }
+
+  // widening continues from the signatures already in the manifest
+  if (input.widen) {
+    const sigFrontier = [...items.values()]
+      .filter((it) => it.node_type === "signature")
+      .map((it) => ({ id: it.node_id, siteId: byNode(it.node_id)?.props?.siteId, path: it.path, depth: it.path.length, baseScore: it.score }));
+    const widenStep = steps[steps.length - 1];
+    const next: typeof frontier = [];
+    for (const f of sigFrontier) {
+      for (const e of edges) {
+        if (!widenStep.edges.includes(e.edgeType)) continue;
+        let nextId: string;
+        let occurredAt: number | undefined;
+        if (e.sourceId === f.id) { nextId = e.targetId; occurredAt = e.occurredAt; }
+        else if (e.targetId === f.id) { nextId = e.sourceId; occurredAt = e.occurredAt; }
+        else continue;
+        const target = byNode(nextId);
+        if (!target || target.type !== "episode" || target.props?.superseded) continue;
+        if (items.has(nextId)) continue;
+        const score = (EDGE_WEIGHTS[e.edgeType] ?? 0.5) * Math.pow(decay, f.depth) * recencyFactor(occurredAt ?? target.props?.occurredAt as number | undefined, now);
+        items.set(nextId, {
+          node_type: "episode",
+          node_id: nextId,
+          path: [...f.path, "MATCHES"],
+          reason: `widened: ${input.widen}`,
+          score: score * 0.8, // widened context is discounted
+          redacted: scope.isCrew,
+        });
+        next.push({ id: nextId, siteId: target.props?.siteId, path: [...f.path, "MATCHES"], depth: f.depth + 1, baseScore: score });
+      }
+    }
+    frontier = next.slice(0, widenStep.limit);
   }
 
   return [...items.values()];

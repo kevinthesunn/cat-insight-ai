@@ -1,7 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import { roleValidator } from "./schema";
 import { canSeeRaw, isCrew, siteAliases } from "./store";
 
 type Ctx = { db: any; auth: any };
@@ -16,6 +17,37 @@ async function requireEngineer(ctx: Ctx) {
   if (!user || !canSeeRaw(user)) throw new Error("Engineer access required");
   return user;
 }
+
+export const setRole = mutation({
+  args: { role: roleValidator },
+  handler: async (ctx, { role }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Sign in required");
+    await ctx.db.patch(userId, { role });
+  },
+});
+
+/** Machine directory (engineer/admin see all; crew see their site's). */
+export const allMachines = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await me(ctx);
+    if (!user) return null;
+    const aliases = await siteAliases(ctx);
+    const crew = isCrew(user);
+    const machines = await ctx.db.query("machines").collect();
+    return machines
+      .filter((m: any) => !crew || m.siteId === user.siteId)
+      .map((m: any) => ({
+        id: m._id as Id<"machines">,
+        unitNumber: m.unitNumber,
+        model: m.model,
+        machineClass: m.machineClass,
+        serialNumber: m.serialNumber,
+        siteLabel: crew ? aliases.get(m.siteId)?.alias : aliases.get(m.siteId)?.name ?? "",
+      }));
+  },
+});
 
 /** §5 emerging_patterns + §12 dashboard data. */
 export const emergingPatterns = query({
@@ -130,20 +162,20 @@ export const pushGuidance = mutation({
 });
 
 // ---- §17.2 graph_edges: uniform edge list; the traversal engine reads only this ----
-export async function buildGraph(ctx: Ctx, opts: { crew: boolean }) {
+export async function buildGraph(ctx: any, opts: { crew: boolean }) {
   const crew = opts.crew;
   const aliases = await siteAliases(ctx);
 
     const assets = await ctx.db.query("assets").collect();
     const machines = await ctx.db.query("machines").collect();
-    const machineById = new Map(machines.map((m: any) => [m._id, m]));
+    const machineById = new Map<string, any>(machines.map((m: any) => [m._id as string, m]));
     const episodes = await ctx.db.query("episodes").collect();
     const signatures = await ctx.db.query("faultSignatures").collect();
     const cards = await ctx.db.query("fixCards").collect();
     const clusters = await ctx.db.query("patternClusters").collect();
     const members = await ctx.db.query("patternClusterMembers").collect();
     const repairs = await ctx.db.query("repairs").collect();
-    const repairByEpisode = new Map(repairs.map((r: any) => [r.episodeId, r]));
+    const repairByEpisode = new Map<string, any>(repairs.map((r: any) => [r.episodeId as string, r]));
 
     type GEdge = { sourceType: string; sourceId: string; edgeType: string; targetType: string; targetId: string; occurredAt?: number; props?: Record<string, unknown> };
     type GNode = { id: string; type: string; label: string; props?: Record<string, unknown> };
@@ -151,7 +183,7 @@ export async function buildGraph(ctx: Ctx, opts: { crew: boolean }) {
     const edges: GEdge[] = [];
 
     // asset tree root site for each asset (walk parents)
-    const assetById = new Map(assets.map((a: any) => [a._id, a]));
+    const assetById = new Map<string, any>(assets.map((a: any) => [a._id as string, a]));
     const rootSiteOf = (a: any): string | null => {
       let cur: any = a;
       for (let i = 0; i < 6 && cur?.parentId; i++) cur = assetById.get(cur.parentId);
@@ -187,7 +219,8 @@ export async function buildGraph(ctx: Ctx, opts: { crew: boolean }) {
     }
     for (const a of assets) {
       if (a.parentId) {
-        const parent = assetById.get(a.parentId);
+        const parent: any = assetById.get(a.parentId);
+        if (!parent) continue;
         edges.push({ sourceType: parent.kind, sourceId: parent._id, edgeType: a.kind === "machine" ? "HOSTS" : "CONTAINS", targetType: a.kind, targetId: a._id });
         if (a.kind === "component") {
           // INSTALLED_ON: component → machine asset
@@ -200,7 +233,7 @@ export async function buildGraph(ctx: Ctx, opts: { crew: boolean }) {
       }
     }
 
-    const sigById = new Map(signatures.map((s: any) => [s._id, s]));
+    const sigById = new Map<string, any>(signatures.map((s: any) => [s._id as string, s]));
     for (const ep of episodes) {
       const machine = machineById.get(ep.machineId);
       nodes.push({
@@ -212,6 +245,7 @@ export async function buildGraph(ctx: Ctx, opts: { crew: boolean }) {
           siteId: ep.siteId,
           siteAlias: aliases.get(ep.siteId ?? "")?.alias,
           superseded: Boolean(ep.supersedes),
+          signatureId: ep.signatureId,
           summary: crew ? (ep.redactedText ?? "").slice(0, 160) : (ep.rawText ?? "").slice(0, 160),
           extractionStatus: ep.extractionStatus,
         },
