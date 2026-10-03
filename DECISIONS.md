@@ -103,3 +103,30 @@ The 30-question gold set with precision ≥ 0.9 reporting is not included; `asse
 
 The doc names the product "SiteMemory"; the previous UI ("CATerra") is renamed accordingly.
 Role names follow §6 (`operator`, `technician`, `manager`, `engineer`, `admin`).
+
+## D12. Mock data researched from real Caterpillar products (§14.1 simulator)
+
+The simulator's fleet, fault codes, and parts are real, researched data — not invented:
+
+- **Models + serial prefixes**: 336 → `TTY`, 320 GC → `LKS` (verified via a 2022 320GC
+  dealer listing, Ring Power), D8T → `FMC` (US-built; `J8B` is the Brazil-built prefix),
+  D6 XE → `KEG`. Engines referenced: 336 Next Gen = Cat C9.3, 320 GC = Cat C4.4,
+  336 GC = Cat C7.1 (273 hp, dealer spec sheet), D8T = Cat C15 ACERT.
+- **Fault codes** (CAT CDL CID-FMI + J1939 + event codes, per published CAT fault-code
+  guides and the CAT fault-code PDF): `94-11` (CID 0094 fuel delivery pressure, FMI 11),
+  `94-18` + event `E198` (low fuel pressure warning), `110-0` + event `E360` (coolant
+  temp high; E361 = shutdown), `41-3/41-4` (8V DC supply — the fault that stacks multiple
+  sensor codes at once, used for the harness signature), `2458-2` (DPF differential
+  pressure erratic), `190-8` (engine speed abnormal frequency).
+- **Part numbers** verified on parts.cat.com / dealer-catalog listings: `1R-0749`
+  (secondary fuel filter), `326-4700` / `10R-7675` (C6.4 fuel injector, 320D/323D),
+  `239-4418` (320 track tension cylinder), `216-0024` (pump group), `9T-6857` (piston
+  pump), `344-1722` (belt tensioner, C7.1/C6.6).
+- **Machine software** uses Cat release-build format (`4N2-1042`, planted pattern units
+  share `4N2-1198`) instead of generic semver; fleet hours sit at a realistic mid-life
+  ~7,100–7,800. Crew phrasing follows the §14.10 anti-fabrication guard: a fault code
+  appears in an episode only when the crew actually "said" it, and mechanical faults
+  (final drive leaks, tensioner slack) carry no code at all.
+- Behavioral invariants of the simulator (planted 4-unit/2-site pump pattern, the
+  baseline-normal track-tensioner distractor, the §17.1 pump-swap asset tree, fix-card
+  rebuild + pattern scan) are unchanged from the original simulator.
