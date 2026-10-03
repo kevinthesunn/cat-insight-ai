@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/components/shared";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/use-auth";
 import { Brand, ROLE_META } from "./Dashboard";
 
@@ -30,14 +31,14 @@ const LAYER_HINT: Record<string, string> = {
 };
 
 const NODE_CLS: Record<string, { rect: string; text: string }> = {
-  site: { rect: "fill-stone-800 stroke-stone-900 dark:fill-stone-700 dark:stroke-stone-600", text: "text-stone-50" },
-  machine: { rect: "fill-sky-100 stroke-sky-300 dark:fill-sky-950 dark:stroke-sky-800", text: "text-sky-900 dark:text-sky-200" },
-  component: { rect: "fill-emerald-100 stroke-emerald-300 dark:fill-emerald-950 dark:stroke-emerald-800", text: "text-emerald-900 dark:text-emerald-200" },
-  episode: { rect: "fill-amber-100 stroke-amber-300 dark:fill-amber-950 dark:stroke-amber-800", text: "text-amber-900 dark:text-amber-200" },
-  signature: { rect: "fill-violet-100 stroke-violet-300 dark:fill-violet-950 dark:stroke-violet-800", text: "text-violet-900 dark:text-violet-200" },
-  fix_card: { rect: "fill-teal-100 stroke-teal-300 dark:fill-teal-950 dark:stroke-teal-800", text: "text-teal-900 dark:text-teal-200" },
-  cluster: { rect: "fill-red-100 stroke-red-300 dark:fill-red-950 dark:stroke-red-800", text: "text-red-900 dark:text-red-200" },
-  part: { rect: "fill-stone-100 stroke-stone-300 dark:fill-stone-800 dark:stroke-stone-700", text: "text-stone-600 dark:text-stone-300" },
+  site: { rect: "fill-stone-800 stroke-stone-900 dark:fill-stone-200 dark:stroke-stone-400", text: "text-stone-50 dark:text-stone-950" },
+  machine: { rect: "fill-sky-100 stroke-sky-300 dark:fill-sky-950 dark:stroke-sky-700", text: "text-sky-900 dark:text-sky-300" },
+  component: { rect: "fill-emerald-100 stroke-emerald-300 dark:fill-emerald-950 dark:stroke-emerald-700", text: "text-emerald-900 dark:text-emerald-300" },
+  episode: { rect: "fill-amber-100 stroke-amber-300 dark:fill-amber-950 dark:stroke-amber-700", text: "text-amber-900 dark:text-amber-300" },
+  signature: { rect: "fill-violet-100 stroke-violet-300 dark:fill-violet-950 dark:stroke-violet-700", text: "text-violet-900 dark:text-violet-300" },
+  fix_card: { rect: "fill-teal-100 stroke-teal-300 dark:fill-teal-950 dark:stroke-teal-700", text: "text-teal-900 dark:text-teal-300" },
+  cluster: { rect: "fill-red-100 stroke-red-300 dark:fill-red-950 dark:stroke-red-700", text: "text-red-900 dark:text-red-300" },
+  part: { rect: "fill-stone-100 stroke-stone-300 dark:fill-stone-800 dark:stroke-stone-600", text: "text-stone-600 dark:text-stone-300" },
 };
 
 const EVENT_EDGES = new Set(["HAD", "MATCHES", "ADDRESSED", "USED", "FOLLOWED_BY"]);
@@ -236,7 +237,7 @@ export default function KnowledgeGraph() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-soft">
-          <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
+          <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
             <Lock className="size-6" />
           </span>
           <h1 className="mt-4 font-display text-xl font-bold">Engineers and site managers only</h1>
@@ -258,6 +259,7 @@ export default function KnowledgeGraph() {
           <Link to="/dashboard"><ArrowLeft className="size-4" /> Dashboard</Link>
         </Button>
         <Brand />
+        <ThemeToggle />
         {role && ROLE_META[role] && (
           <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", ROLE_META[role].cls)}>
             {ROLE_META[role].label}
@@ -280,7 +282,7 @@ export default function KnowledgeGraph() {
       {/* controls */}
       <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-soft">
         {isManager ? (
-          <span className="flex h-9 items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 text-sm font-medium text-sky-900">
+          <span className="flex h-9 items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 text-sm font-medium text-sky-700 dark:text-sky-300">
             <Lock className="size-3.5" /> {siteOptions.find((s) => s.id === effectiveSite)?.label ?? "Your site"} · site-scoped
           </span>
         ) : (
@@ -302,7 +304,7 @@ export default function KnowledgeGraph() {
               className={cn(
                 "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
                 types[t]
-                  ? "border-stone-300 bg-secondary text-foreground"
+                  ? "border-amber-500/50 bg-amber-500/10 text-foreground"
                   : "border-border bg-background text-muted-foreground",
               )}
             >
@@ -423,7 +425,7 @@ export default function KnowledgeGraph() {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold", NODE_CLS[selected.type]?.text ?? "text-muted-foreground")}>
+                  <span className={cn("rounded-full border border-current/30 bg-current/10 px-2 py-0.5 text-[11px] font-semibold", NODE_CLS[selected.type]?.text ?? "text-muted-foreground")}>
                     {LAYER_LABEL[selected.type] ?? selected.type}
                   </span>
                   <h2 className="mt-2 font-display text-base font-bold leading-snug">{selected.label}</h2>

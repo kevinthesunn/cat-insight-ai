@@ -117,14 +117,14 @@ export default function EngineerDashboard({ role }: { role: Role }) {
                     {c.unitCount} units · {c.siteCount} sites · {c.episodeCount} episodes · score {Number(c.score ?? 0).toFixed(1)}
                   </p>
                 </div>
-                <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
                   {c.status.replace(/_/g, " ")}
                 </span>
               </div>
 
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {c.hints.map((h: string) => (
-                  <span key={h} className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-900">
+                  <span key={h} className="rounded-full bg-violet-500/15 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
                     {h}
                   </span>
                 ))}
@@ -160,7 +160,7 @@ export default function EngineerDashboard({ role }: { role: Role }) {
                 ))}
               </div>
               {rawFor && (
-                <p className="mt-2 rounded-lg bg-stone-900 p-3 text-xs text-stone-200">RAW · {rawText}</p>
+                <p className="mt-2 rounded-lg bg-stone-900 p-3 text-xs text-stone-200 dark:bg-stone-950 dark:ring-1 dark:ring-stone-800">RAW · {rawText}</p>
               )}
 
               {isEngineer && (
@@ -258,7 +258,7 @@ export default function EngineerDashboard({ role }: { role: Role }) {
                   </div>
                 )}
                 {answer.widened && (
-                  <p className="mt-3 rounded-lg bg-violet-50 p-3 text-xs text-violet-900">
+                  <p className="mt-3 rounded-lg bg-violet-500/10 p-3 text-xs text-violet-700 dark:text-violet-300">
                     Widened once ({answer.manifest_summary?.widenReason}): the answer uses context beyond this machine's branch.
                   </p>
                 )}
@@ -270,10 +270,10 @@ export default function EngineerDashboard({ role }: { role: Role }) {
                     nodes: {answer.manifest_summary?.nodeCount} · ~{answer.manifest_summary?.tokenEstimate} tokens
                   </span>
                   {(answer.citations ?? []).map((c: string) => (
-                    <span key={c} className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-mono text-amber-900">{c.slice(0, 12)}</span>
+                    <span key={c} className="rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-mono text-amber-700 dark:text-amber-400">{c.slice(0, 12)}</span>
                   ))}
                   {answer.flaggedCitations?.length > 0 && (
-                    <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800">
+                    <span className="rounded-full bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-700 dark:text-red-400">
                       {answer.flaggedCitations.length} unverified claim(s) flagged
                     </span>
                   )}

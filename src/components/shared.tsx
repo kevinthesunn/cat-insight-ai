@@ -13,9 +13,9 @@ export function timeAgo(ts: number) {
 }
 
 const severityStyles: Record<string, string> = {
-  critical: "bg-red-100 text-red-800 border-red-200",
-  warning: "bg-amber-100 text-amber-900 border-amber-200",
-  info: "bg-stone-100 text-stone-700 border-stone-200",
+  critical: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+  warning: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  info: "bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-500/30",
 };
 
 export function SeverityBadge({ severity }: { severity: string }) {
@@ -34,10 +34,10 @@ export const CATEGORY_ICON: Record<string, LucideIcon> = {
 };
 
 const categoryStyles: Record<string, string> = {
-  mechanical: "bg-amber-100 text-amber-900 border-amber-200",
-  safety: "bg-red-100 text-red-800 border-red-200",
-  environmental: "bg-sky-100 text-sky-900 border-sky-200",
-  operational: "bg-stone-100 text-stone-700 border-stone-200",
+  mechanical: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  safety: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+  environmental: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30",
+  operational: "bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-500/30",
 };
 
 export function CategoryBadge({ category }: { category: string }) {
@@ -51,9 +51,9 @@ export function CategoryBadge({ category }: { category: string }) {
 }
 
 const alertStatusStyles: Record<string, { cls: string; label: string }> = {
-  open: { cls: "bg-red-50 text-red-700 border-red-200", label: "Needs attention" },
-  acknowledged: { cls: "bg-amber-50 text-amber-800 border-amber-200", label: "Crew on it" },
-  resolved: { cls: "bg-emerald-50 text-emerald-800 border-emerald-200", label: "Resolved" },
+  open: { cls: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30", label: "Needs attention" },
+  acknowledged: { cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30", label: "Crew on it" },
+  resolved: { cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", label: "Resolved" },
 };
 
 export function AlertStatusBadge({ status }: { status: string }) {
@@ -66,10 +66,10 @@ export function AlertStatusBadge({ status }: { status: string }) {
 }
 
 const machineStatusStyles: Record<string, { cls: string; dot: string; label: string }> = {
-  operational: { cls: "text-emerald-700", dot: "bg-emerald-500", label: "Running" },
-  idle: { cls: "text-amber-700", dot: "bg-amber-500", label: "Idle" },
-  maintenance: { cls: "text-sky-700", dot: "bg-sky-500", label: "In service" },
-  down: { cls: "text-red-700", dot: "bg-red-500", label: "Down" },
+  operational: { cls: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", label: "Running" },
+  idle: { cls: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500", label: "Idle" },
+  maintenance: { cls: "text-sky-700 dark:text-sky-400", dot: "bg-sky-500", label: "In service" },
+  down: { cls: "text-red-700 dark:text-red-400", dot: "bg-red-500", label: "Down" },
 };
 
 export function MachineStatus({ status }: { status: string }) {
@@ -83,10 +83,10 @@ export function MachineStatus({ status }: { status: string }) {
 }
 
 export const REPORT_STATUS_META: Record<string, { cls: string; label: string }> = {
-  new: { cls: "bg-red-50 text-red-700 border-red-200", label: "New — needs investigation" },
-  investigating: { cls: "bg-sky-50 text-sky-800 border-sky-200", label: "Investigating" },
-  quick_fix: { cls: "bg-amber-50 text-amber-800 border-amber-200", label: "Quick fix with crew" },
-  resolved: { cls: "bg-emerald-50 text-emerald-800 border-emerald-200", label: "Fixed in product update" },
+  new: { cls: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30", label: "New — needs investigation" },
+  investigating: { cls: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30", label: "Investigating" },
+  quick_fix: { cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30", label: "Quick fix with crew" },
+  resolved: { cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", label: "Fixed in product update" },
 };
 
 export function ReportStatusBadge({ status }: { status: string }) {

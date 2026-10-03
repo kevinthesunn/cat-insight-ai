@@ -8,13 +8,14 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import CrewApp from "@/components/CrewApp";
 import EngineerDashboard from "@/components/EngineerDashboard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const ROLE_META: Record<string, { label: string; cls: string }> = {
-  operator: { label: "Operator", cls: "bg-amber-100 text-amber-900 border-amber-200" },
-  technician: { label: "Technician", cls: "bg-emerald-100 text-emerald-900 border-emerald-200" },
-  manager: { label: "Site manager", cls: "bg-sky-100 text-sky-900 border-sky-200" },
-  engineer: { label: "CAT engineer", cls: "bg-stone-200 text-stone-800 border-stone-300" },
-  admin: { label: "Admin", cls: "bg-stone-200 text-stone-800 border-stone-300" },
+  operator: { label: "Operator", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" },
+  technician: { label: "Technician", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+  manager: { label: "Site manager", cls: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30" },
+  engineer: { label: "CAT engineer", cls: "bg-stone-500/15 text-stone-700 dark:text-stone-300 border-stone-500/30" },
+  admin: { label: "Admin", cls: "bg-stone-500/15 text-stone-700 dark:text-stone-300 border-stone-500/30" },
 };
 
 export function Brand({ light = false }: { light?: boolean }) {
@@ -53,7 +54,7 @@ function RolePicker({ onPick }: { onPick: (role: string) => void }) {
               onClick={() => onPick(r.id)}
               className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 text-left shadow-soft transition-all hover:-translate-y-0.5 hover:border-amber-400/60 hover:shadow-lift"
             >
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-900">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
                 <r.icon className="size-6" />
               </span>
               <span className="flex-1">
@@ -135,6 +136,7 @@ export default function Dashboard() {
               <UserCog className="size-4" />
               <span className="hidden sm:inline">Switch view</span>
             </Button>
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"

@@ -6,7 +6,21 @@
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CATerra — Memory Layer for CAT Assets & Job Sites</title>
+  <title>SiteMemory — Machine Memory Layer for CAT Assets & Job Sites</title>
+  <script>
+    // Dark by default. Runs before first paint so there is no light flash.
+    (function () {
+      try {
+        var t = localStorage.getItem("site-memory-theme");
+        // Explicit class in both branches — an ambiguous no-class state would
+        // desync the ThemeToggle's initial state from the DOM.
+        if (t === "light") document.documentElement.classList.add("light");
+        else document.documentElement.classList.add("dark");
+      } catch (e) {
+        document.documentElement.classList.add("dark");
+      }
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link

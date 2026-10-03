@@ -265,7 +265,7 @@ export default function CrewApp({ role }: { role: Role }) {
         </button>
         <div className="flex items-center gap-2">
           {queuedCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
               <Radio className="size-3" /> {queuedCount} saved
             </span>
           )}
@@ -335,7 +335,7 @@ export default function CrewApp({ role }: { role: Role }) {
       )}
 
       {phase === "sending" && (
-        <div className="mt-6 flex items-center gap-3 rounded-2xl bg-stone-900 p-5 text-white shadow-lift">
+        <div className="mt-6 flex items-center gap-3 rounded-2xl bg-stone-900 p-5 text-white shadow-lift dark:bg-stone-800 dark:ring-1 dark:ring-stone-700">
           <Loader2 className="size-6 animate-spin" />
           <p className="text-lg font-bold">Adding to the memory layer…</p>
         </div>
@@ -358,11 +358,11 @@ export default function CrewApp({ role }: { role: Role }) {
           )}
 
           {noMatch && (
-            <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-5">
-              <p className="flex items-center gap-2 font-semibold text-amber-900">
+            <div className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5">
+              <p className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
                 <TriangleAlert className="size-5" /> No match yet — sent to the engineers
               </p>
-              <p className="mt-1 text-sm text-amber-900/80">This exact fault isn't in memory for {machine?.model}s yet. CAT Engineering gets it with your words attached.</p>
+              <p className="mt-1 text-sm text-amber-900/80 dark:text-amber-200/80">This exact fault isn't in memory for {machine?.model}s yet. CAT Engineering gets it with your words attached.</p>
               {episodeId && <Button size="sm" className="mt-3" variant="outline" onClick={() => void flag({ episodeId })}>Make sure they see it</Button>}
             </div>
           )}
@@ -370,12 +370,12 @@ export default function CrewApp({ role }: { role: Role }) {
           {top && (
             <div className="mt-3 rounded-2xl border-2 border-emerald-500/60 bg-card p-5 shadow-lift">
               {top.guidanceNote && (
-                <p className="mb-3 rounded-lg bg-stone-900 p-3 text-sm text-amber-300">
+                <p className="mb-3 rounded-lg bg-stone-900 p-3 text-sm text-amber-300 dark:bg-stone-800 dark:ring-1 dark:ring-stone-700">
                   Engineer guidance: {top.guidanceNote}
                 </p>
               )}
               <p className="font-display text-xl font-bold leading-snug">{top.title}</p>
-              {top.caveats && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Caveat: {top.caveats}</p>}
+              {top.caveats && <p className="mt-2 rounded-lg bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">Caveat: {top.caveats}</p>}
               <ol className="mt-3 space-y-2">
                 {top.steps.map((s: string, i: number) => (
                   <li key={i} className="flex gap-2.5 text-[18px] leading-relaxed">
@@ -387,7 +387,7 @@ export default function CrewApp({ role }: { role: Role }) {
               {top.parts.length > 0 && (
                 <p className="mt-3 text-sm text-muted-foreground">Parts: {top.parts.join(", ")}</p>
               )}
-              <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+              <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400">
                 <CheckCircle2 className="size-4" />
                 Worked on {top.held} of {top.held + top.recurred} unit{top.held + top.recurred === 1 ? "" : "s"} that tried it
               </p>
@@ -446,7 +446,7 @@ export default function CrewApp({ role }: { role: Role }) {
 
       {/* machine picker */}
       {picking && (
-        <div className="fixed inset-0 z-50 bg-stone-950/60 p-4" onClick={() => setPicking(false)}>
+        <div className="fixed inset-0 z-50 bg-stone-950/70 p-4 backdrop-blur-sm" onClick={() => setPicking(false)}>
           <div className="mx-auto mt-10 max-w-md rounded-2xl bg-card p-4 shadow-lift" onClick={(e) => e.stopPropagation()}>
             <p className="mb-3 font-display text-lg font-bold">Which machine?</p>
             <div className="max-h-[60vh] space-y-2 overflow-y-auto">

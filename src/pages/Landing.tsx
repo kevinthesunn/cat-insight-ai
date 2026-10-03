@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/pages/Dashboard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { motion } from "framer-motion";
 import {
   AlertTriangle, ArrowRight, CloudSun, Gauge, GitBranch, HardHat, Lightbulb,
@@ -46,9 +47,12 @@ export default function Landing() {
             <a href="#memory" className="transition hover:text-foreground">Memory layer</a>
             <a href="#roles" className="transition hover:text-foreground">Who it's for</a>
           </nav>
-          <Button asChild className="shadow-soft">
-            <Link to="/auth">Open the console <ArrowRight className="size-4" /></Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="hidden sm:inline-flex" />
+            <Button asChild className="shadow-soft">
+              <Link to="/auth">Open the console <ArrowRight className="size-4" /></Link>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -57,14 +61,14 @@ export default function Landing() {
         <div className="bg-grid-faint absolute inset-0 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_35%,black,transparent)]" />
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-2 lg:pt-24">
           <div>
-            <motion.div {...fadeUp} className="inline-flex items-center gap-2 rounded-full border border-amber-300/70 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+            <motion.div {...fadeUp} className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
               <span className="size-1.5 rounded-full bg-amber-500" />
               Intelligent memory layer for CAT assets & job sites
             </motion.div>
             <motion.h1 {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.08 }} className="mt-5 font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl">
               Every machine remembers.
               <br />
-              <span className="text-stone-500">Every site learns.</span>
+              <span className="text-stone-400 dark:text-stone-500">Every site learns.</span>
             </motion.h1>
             <motion.p {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.16 }} className="mt-5 max-w-lg text-lg leading-relaxed text-muted-foreground">
               CATerra turns your job-site data into an ever-growing knowledge graph — so problems get caught early, crews know exactly what to do, and CAT engineers close the loop for good.
@@ -89,31 +93,31 @@ export default function Landing() {
                 <span className="size-2.5 rounded-full bg-stone-300" />
                 <span className="size-2.5 rounded-full bg-stone-300" />
                 <span className="size-2.5 rounded-full bg-primary" />
-                <span className="ml-2 text-xs font-medium text-muted-foreground">CATerra · Northgate Logistics Hub</span>
+                <span className="ml-2 text-xs font-medium text-muted-foreground">SiteMemory · Northgate Logistics Hub</span>
               </div>
               <div className="rounded-xl bg-secondary/70 p-3">
                 <svg viewBox="0 0 420 200" className="w-full">
-                  <line x1="210" y1="100" x2="80" y2="46" stroke="#D6D3D1" strokeWidth="1.5" />
-                  <line x1="210" y1="100" x2="352" y2="52" stroke="#D6D3D1" strokeWidth="1.5" />
-                  <line x1="210" y1="100" x2="64" y2="152" stroke="#D6D3D1" strokeWidth="1.5" />
-                  <line x1="210" y1="100" x2="330" y2="158" stroke="#D6D3D1" strokeWidth="1.5" />
-                  <line x1="210" y1="100" x2="210" y2="30" stroke="#F87171" strokeWidth="1.5" />
-                  <line x1="210" y1="30" x2="322" y2="18" stroke="#D9A506" strokeWidth="1.5" strokeDasharray="4 3" />
-                  <circle cx="210" cy="100" r="13" fill="#292524" />
-                  <text x="210" y="128" textAnchor="middle" fontSize="11" fontWeight="600" fill="#292524">Northgate Hub</text>
-                  <circle cx="80" cy="46" r="9" fill="#D9A506" />
-                  <text x="80" y="68" textAnchor="middle" fontSize="10" fill="#57534E">D8T Dozer</text>
-                  <circle cx="352" cy="52" r="9" fill="#D9A506" />
-                  <text x="352" y="74" textAnchor="middle" fontSize="10" fill="#57534E">745 Truck</text>
-                  <circle cx="64" cy="152" r="9" fill="#D9A506" />
-                  <text x="64" y="174" textAnchor="middle" fontSize="10" fill="#57534E">950M Loader</text>
-                  <circle cx="330" cy="158" r="9" fill="#D9A506" />
-                  <text x="330" y="180" textAnchor="middle" fontSize="10" fill="#57534E">320 GC Exc</text>
-                  <circle cx="210" cy="30" r="7" fill="#DC2626" />
-                  <circle cx="210" cy="30" r="12" fill="none" stroke="#DC2626" strokeOpacity="0.4" />
-                  <text x="210" y="12" textAnchor="middle" fontSize="10" fontWeight="600" fill="#DC2626">Overheat alert</text>
-                  <circle cx="322" cy="18" r="6" fill="#10B981" />
-                  <text x="322" y="6" textAnchor="middle" fontSize="9" fill="#059669">Quick fix</text>
+                  <line x1="210" y1="100" x2="80" y2="46" className="stroke-stone-300 dark:stroke-stone-700" strokeWidth="1.5" />
+                  <line x1="210" y1="100" x2="352" y2="52" className="stroke-stone-300 dark:stroke-stone-700" strokeWidth="1.5" />
+                  <line x1="210" y1="100" x2="64" y2="152" className="stroke-stone-300 dark:stroke-stone-700" strokeWidth="1.5" />
+                  <line x1="210" y1="100" x2="330" y2="158" className="stroke-stone-300 dark:stroke-stone-700" strokeWidth="1.5" />
+                  <line x1="210" y1="100" x2="210" y2="30" className="stroke-red-400" strokeWidth="1.5" />
+                  <line x1="210" y1="30" x2="322" y2="18" className="stroke-amber-400" strokeWidth="1.5" strokeDasharray="4 3" />
+                  <circle cx="210" cy="100" r="13" className="fill-stone-800 dark:fill-stone-200" />
+                  <text x="210" y="128" textAnchor="middle" fontSize="11" fontWeight="600" className="fill-stone-700 dark:fill-stone-300">Northgate Hub</text>
+                  <circle cx="80" cy="46" r="9" className="fill-amber-500" />
+                  <text x="80" y="68" textAnchor="middle" fontSize="10" className="fill-stone-500 dark:fill-stone-400">D8T Dozer</text>
+                  <circle cx="352" cy="52" r="9" className="fill-amber-500" />
+                  <text x="352" y="74" textAnchor="middle" fontSize="10" className="fill-stone-500 dark:fill-stone-400">745 Truck</text>
+                  <circle cx="64" cy="152" r="9" className="fill-amber-500" />
+                  <text x="64" y="174" textAnchor="middle" fontSize="10" className="fill-stone-500 dark:fill-stone-400">950M Loader</text>
+                  <circle cx="330" cy="158" r="9" className="fill-amber-500" />
+                  <text x="330" y="180" textAnchor="middle" fontSize="10" className="fill-stone-500 dark:fill-stone-400">320 GC Exc</text>
+                  <circle cx="210" cy="30" r="7" className="fill-red-500" />
+                  <circle cx="210" cy="30" r="12" fill="none" className="stroke-red-500" strokeOpacity="0.4" />
+                  <text x="210" y="12" textAnchor="middle" fontSize="10" fontWeight="600" className="fill-red-500">Overheat alert</text>
+                  <circle cx="322" cy="18" r="6" className="fill-emerald-500" />
+                  <text x="322" y="6" textAnchor="middle" fontSize="9" className="fill-emerald-600 dark:fill-emerald-400">Quick fix</text>
                 </svg>
               </div>
             </div>
@@ -121,9 +125,9 @@ export default function Landing() {
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.7, duration: 0.5 }}
-              className="absolute -right-3 top-10 hidden w-60 rounded-xl border border-red-200 bg-white p-3 shadow-lift sm:block"
+              className="absolute -right-3 top-10 hidden w-60 rounded-xl border border-red-500/30 bg-card p-3 shadow-lift sm:block"
             >
-              <p className="flex items-center gap-1.5 text-xs font-bold text-red-600"><AlertTriangle className="size-3.5" /> CRITICAL · 7m ago</p>
+              <p className="flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400"><AlertTriangle className="size-3.5" /> CRITICAL · 7m ago</p>
               <p className="mt-1 text-sm font-semibold leading-snug">320 GC — hydraulic overheat</p>
               <p className="mt-0.5 text-xs text-muted-foreground">CAT engineers notified automatically.</p>
             </motion.div>
@@ -131,9 +135,9 @@ export default function Landing() {
               initial={{ opacity: 0, x: -24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.9, duration: 0.5 }}
-              className="absolute -left-3 bottom-8 hidden w-60 rounded-xl border border-emerald-200 bg-white p-3 shadow-lift sm:block"
+              className="absolute -left-3 bottom-8 hidden w-60 rounded-xl border border-emerald-500/30 bg-card p-3 shadow-lift sm:block"
             >
-              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-600"><PackageCheck className="size-3.5" /> QUICK FIX · CAT Engineering</p>
+              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400"><PackageCheck className="size-3.5" /> QUICK FIX · CAT Engineering</p>
               <p className="mt-1 text-sm font-semibold leading-snug">Swap water separator (P/N 1R-0750)</p>
               <p className="mt-0.5 text-xs text-muted-foreground">20-minute job · sent to the crew</p>
             </motion.div>
@@ -167,7 +171,7 @@ export default function Landing() {
         <div className="mt-12 grid gap-4 md:grid-cols-4">
           {STEPS.map((s, i) => (
             <motion.div key={s.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.08 }} className="relative rounded-2xl border border-border bg-card p-6 shadow-soft transition hover:-translate-y-1 hover:shadow-lift">
-              <span className="absolute right-5 top-5 font-display text-4xl font-bold text-stone-100">{i + 1}</span>
+              <span className="absolute right-5 top-5 font-display text-4xl font-bold text-stone-100 dark:text-stone-800">{i + 1}</span>
               <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15">
                 <s.icon className="size-5" />
               </span>
@@ -182,7 +186,7 @@ export default function Landing() {
       <section id="memory" className="border-y border-border bg-secondary/40">
         <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
           <motion.div {...fadeUp} className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-widest text-amber-600">The memory layer</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">The memory layer</p>
             <h2 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Four streams in. One brain out.</h2>
             <p className="mt-3 text-muted-foreground">CATerra never forgets what a machine has been through — and connects it to what's happening right now.</p>
           </motion.div>
@@ -207,7 +211,7 @@ export default function Landing() {
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {ROLES.map((r, i) => (
             <motion.div key={r.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.08 }} className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-soft transition hover:-translate-y-1 hover:shadow-lift">
-              <span className="flex size-12 items-center justify-center rounded-xl bg-stone-900 text-primary">
+              <span className="flex size-12 items-center justify-center rounded-xl bg-stone-900 text-amber-400 dark:bg-amber-400 dark:text-stone-950">
                 <r.icon className="size-6" />
               </span>
               <span className="mt-4 inline-flex w-fit rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">{r.tag}</span>
