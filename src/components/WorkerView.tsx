@@ -1,19 +1,12 @@
 import { Button } from "@/components/ui/button";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { CATEGORY_ICON, SeverityIcon, timeAgo } from "@/components/shared";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import {
-  Check, CircleAlert, CloudSun, HardHat, MessageSquarePlus, ShieldAlert, Users, Wrench,
+  Check, CircleAlert, CircleStop, CloudSun, HardHat, Loader2, Mic, Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 type Data = {
@@ -26,23 +19,39 @@ type Data = {
   reports: Doc<"engineerReports">[];
 };
 
-const PROBLEM_TYPES = [
-  { id: "mechanical", icon: Wrench, label: "A machine is acting up", hint: "Weird noise, warning light, low power…" },
-  { id: "safety", icon: ShieldAlert, label: "Something unsafe", hint: "Anything that could hurt someone" },
-  { id: "environmental", icon: CloudSun, label: "Weather or ground", hint: "Water, wind, mud, unstable ground" },
-  { id: "operational", icon: MessageSquarePlus, label: "Something else", hint: "Anything the team should know" },
-] as const;
-
 function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
+function CategoryIcon({ category }: { category: string }) {
+  const Icon = CATEGORY_ICON[category] ?? CircleAlert;
+  return <Icon className="size-5" />;
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => {
+      const s = String(r.result);
+      resolve(s.slice(s.indexOf(",") + 1));
+    };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+function fmtClock(totalSec: number) {
+  return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, "0")}`;
+}
+
+type Phase = "idle" | "recording" | "processing";
+
 export default function WorkerView({ user, data }: { user: Doc<"users"> | null; data: Data }) {
   const ack = useMutation(api.app.acknowledgeAlert);
   const resolve = useMutation(api.app.resolveAlert);
   const complete = useMutation(api.app.completeTask);
-  const report = useMutation(api.app.reportProblem);
+  const processVoice = useAction(api.ai.processVoiceReport);
 
   const site = data.sites.find((s) => s._id === (user?.siteId ?? data.sites[0]?._id)) ?? data.sites[0];
   const siteAlerts = data.alerts
@@ -55,36 +64,73 @@ export default function WorkerView({ user, data }: { user: Doc<"users"> | null; 
     .sort((a, b) => (a.priority === "urgent" ? -1 : 1) - (b.priority === "urgent" ? -1 : 1) || b.createdAt - a.createdAt);
   const doneTasks = data.tasks.filter((t) => t.siteId === site?._id && t.status === "done");
 
-  const [open, setOpen] = useState(false);
-  const [type, setType] = useState<string | null>(null);
-  const [machineId, setMachineId] = useState<string>("");
-  const [detail, setDetail] = useState("");
-  const [sending, setSending] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [elapsed, setElapsed] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<number | null>(null);
 
-  const siteMachines = data.machines.filter((m) => m.siteId === site?._id);
-
-  const submit = async () => {
-    if (!site || !type) return;
-    setSending(true);
+  const startRecording = async () => {
+    if (!site) return;
     try {
-      await report({
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : undefined;
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.start(250);
+      recorderRef.current = rec;
+      setElapsed(0);
+      setPhase("recording");
+      timerRef.current = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    } catch {
+      toast.error("Microphone is blocked. Allow mic access, or find your foreman to log it.");
+    }
+  };
+
+  const stopAndSend = async () => {
+    const rec = recorderRef.current;
+    if (!rec || !site) return;
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    const finished = new Promise<Blob>((resolve) => {
+      rec.onstop = () => resolve(new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" }));
+    });
+    rec.stop();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    setPhase("processing");
+    try {
+      const blob = await finished;
+      if (blob.size < 1200) {
+        toast.error("Didn't catch that — hold the button talk a little longer.");
+        return;
+      }
+      const audioBase64 = await blobToBase64(blob);
+      const res = await processVoice({
         siteId: site._id,
-        machineId: type === "mechanical" && machineId ? (machineId as Id<"machines">) : undefined,
-        category: type,
-        title:
-          type === "mechanical"
-            ? `${siteMachines.find((m) => m._id === machineId)?.name ?? "Machine"} — crew report`
-            : PROBLEM_TYPES.find((p) => p.id === type)!.label,
-        detail: detail.trim() || "Reported from the field.",
-        severity: type === "mechanical" ? "critical" : type === "operational" ? "info" : "warning",
+        audioBase64,
+        mimeType: blob.type,
       });
-      toast.success("Got it. Your crew and CAT engineers can see this now.");
-      setOpen(false);
-      setType(null);
-      setDetail("");
-      setMachineId("");
+      toast.success(`Logged: ${res.title}`, {
+        description: `“${res.transcript}”`,
+        duration: 8000,
+      });
+      if (res.notified) {
+        toast.info("CAT engineers have been notified automatically.", { duration: 6000 });
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't send that. Try again.");
     } finally {
-      setSending(false);
+      setPhase("idle");
+      recorderRef.current = null;
     }
   };
 
@@ -104,16 +150,57 @@ export default function WorkerView({ user, data }: { user: Doc<"users"> | null; 
         </div>
       </div>
 
+      {/* Voice report — one big button, no forms */}
       <button
-        onClick={() => setOpen(true)}
-        className="mt-6 flex w-full items-center gap-4 rounded-2xl bg-primary p-5 text-left shadow-lift transition-transform active:scale-[0.99]"
+        disabled={phase === "processing" || !site}
+        onClick={() => (phase === "recording" ? void stopAndSend() : void startRecording())}
+        className={`mt-6 flex w-full items-center gap-4 rounded-2xl p-6 text-left shadow-lift transition-all active:scale-[0.99] disabled:cursor-wait ${
+          phase === "recording"
+            ? "bg-red-600"
+            : phase === "processing"
+              ? "bg-stone-900"
+              : "bg-primary"
+        }`}
       >
-        <span className="flex size-12 items-center justify-center rounded-xl bg-primary-foreground/15">
-          <MessageSquarePlus className="size-6 text-primary-foreground" />
+        <span className="relative flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary-foreground/15">
+          {phase === "processing" ? (
+            <Loader2 className="size-7 animate-spin text-primary-foreground" />
+          ) : phase === "recording" ? (
+            <>
+              <span className="absolute inset-0 animate-ping rounded-2xl bg-white/25" />
+              <CircleStop className="size-7 text-white" />
+            </>
+          ) : (
+            <Mic className="size-7 text-primary-foreground" />
+          )}
         </span>
         <span className="flex-1">
-          <span className="block text-lg font-bold text-primary-foreground">Report a problem</span>
-          <span className="block text-sm text-primary-foreground/75">Takes 20 seconds. We tell everyone for you.</span>
+          {phase === "idle" && (
+            <>
+              <span className="block text-xl font-bold text-primary-foreground">Report a problem</span>
+              <span className="block text-sm text-primary-foreground/80">Tap it, then just talk like you'd tell your foreman. We do the paperwork.</span>
+            </>
+          )}
+          {phase === "recording" && (
+            <>
+              <span className="flex items-center gap-2 text-xl font-bold text-white">
+                Listening
+                <span className="flex items-end gap-0.5">
+                  {[0, 1, 2, 3].map((i) => (
+                    <span key={i} className="w-1 animate-pulse rounded-full bg-white/90" style={{ height: 6 + i * 4, animationDelay: `${i * 120}ms` }} />
+                  ))}
+                </span>
+                <span className="ml-auto font-mono text-base font-semibold text-white/90">{fmtClock(elapsed)}</span>
+              </span>
+              <span className="block text-sm text-white/85">Tap the button when you're done.</span>
+            </>
+          )}
+          {phase === "processing" && (
+            <>
+              <span className="block text-xl font-bold text-white">Adding to the memory layer…</span>
+              <span className="block text-sm text-white/75">Transcribing and routing to your crew and CAT engineers.</span>
+            </>
+          )}
         </span>
       </button>
 
@@ -133,7 +220,6 @@ export default function WorkerView({ user, data }: { user: Doc<"users"> | null; 
         ) : (
           <div className="mt-3 space-y-3">
             {openAlerts.map((a) => {
-              const Icon = CATEGORY_ICON[a.category] ?? CircleAlert;
               const critical = a.severity === "critical" && a.status === "open";
               return (
                 <div
@@ -142,7 +228,7 @@ export default function WorkerView({ user, data }: { user: Doc<"users"> | null; 
                 >
                   <div className="flex items-start gap-3">
                     <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${critical ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                      <Icon className="size-5" />
+                      <CategoryIcon category={a.category} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold leading-snug">{a.title}</p>
@@ -227,78 +313,8 @@ export default function WorkerView({ user, data }: { user: Doc<"users"> | null; 
       )}
 
       <p className="mt-10 rounded-xl border border-amber-200/70 bg-amber-50/60 p-4 text-center text-xs leading-relaxed text-amber-900">
-        Machine problems go straight to CAT engineers automatically. When they find a quick fix, it lands here for your crew.
+        Every report you speak up is remembered on this site's knowledge graph — and machine problems go straight to CAT engineers. When they find a quick fix, it lands here.
       </p>
-
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setType(null); }}>
-        <DialogContent className="max-w-md">
-          {!type ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-display">What's going on?</DialogTitle>
-                <DialogDescription>Pick the closest one. One tap is enough.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-2.5">
-                {PROBLEM_TYPES.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setType(p.id)}
-                    className="flex items-center gap-3.5 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/60 hover:bg-accent active:scale-[0.99]"
-                  >
-                    <span className="flex size-11 items-center justify-center rounded-lg bg-primary/15">
-                      <p.icon className="size-5" />
-                    </span>
-                    <span>
-                      <span className="block font-semibold">{p.label}</span>
-                      <span className="block text-sm text-muted-foreground">{p.hint}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-display">Tell us a little more</DialogTitle>
-                <DialogDescription>Plain words are fine. A sentence helps the engineers.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3">
-                {type === "mechanical" && siteMachines.length > 0 && (
-                  <Select value={machineId} onValueChange={setMachineId}>
-                    <SelectTrigger className="h-12 text-base">
-                      <SelectValue placeholder="Which machine?" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {siteMachines.map((m) => (
-                        <SelectItem key={m._id} value={m._id} className="text-base">{m.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Textarea
-                  value={detail}
-                  onChange={(e) => setDetail(e.target.value)}
-                  placeholder="What's happening?"
-                  className="min-h-24 text-base"
-                />
-                <div className="flex gap-2">
-                  <Button variant="ghost" className="flex-1" onClick={() => setType(null)}>Back</Button>
-                  <Button
-                    className="flex-1"
-                    disabled={sending || (type === "mechanical" && !machineId)}
-                    onClick={() => void submit()}
-                  >
-                    {sending ? "Sending…" : "Send it"}
-                  </Button>
-                </div>
-                <p className="text-center text-xs text-muted-foreground">
-                  The whole crew sees this instantly. Machine issues also ping CAT Engineering.
-                </p>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }

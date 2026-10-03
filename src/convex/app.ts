@@ -784,3 +784,96 @@ export const resolveInUpdate = mutation({
     });
   },
 });
+
+// ---- voice reports (processed by ai.ts, committed here) ----
+
+export const siteContext = query({
+  args: { siteId: v.id("sites") },
+  handler: async (ctx, { siteId }) => {
+    const site = await ctx.db.get(siteId);
+    const machines = await ctx.db
+      .query("machines")
+      .withIndex("by_site", (q) => q.eq("siteId", siteId))
+      .collect();
+    return { siteName: site?.name ?? "", machines: machines.map((m) => m.name) };
+  },
+});
+
+export const machineIdByName = query({
+  args: { siteId: v.id("sites"), name: v.string() },
+  handler: async (ctx, { siteId, name }) => {
+    const machines = await ctx.db
+      .query("machines")
+      .withIndex("by_site", (q) => q.eq("siteId", siteId))
+      .collect();
+    const m = machines.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    return m?._id ?? null;
+  },
+});
+
+export const commitVoiceReport = mutation({
+  args: {
+    siteId: v.id("sites"),
+    machineId: v.optional(v.id("machines")),
+    category: v.string(),
+    severity: v.string(),
+    title: v.string(),
+    crewMessage: v.string(),
+    transcript: v.string(),
+    actor: v.string(),
+    actions: v.array(v.string()),
+  },
+  handler: async (
+    ctx,
+    { siteId, machineId, category, severity, title, crewMessage, transcript, actor, actions },
+  ) => {
+    const ts = now();
+    const alertId = await ctx.db.insert("alerts", {
+      siteId,
+      machineId,
+      category,
+      title,
+      message: crewMessage,
+      severity,
+      status: "open",
+      source: "crew",
+      createdAt: ts,
+    });
+    // the raw transcript is the memory; the AI summary rides on the alert
+    await ctx.db.insert("events", {
+      siteId,
+      machineId,
+      kind: "alert",
+      title: `Voice report: ${title}`,
+      detail: `“${transcript}”`,
+      severity,
+      actor,
+      createdAt: ts,
+    });
+    if (category === "mechanical") {
+      await ctx.db.insert("engineerReports", {
+        alertId,
+        siteId,
+        machineId,
+        title,
+        symptom: `Spoken report from ${actor}: “${transcript}”`,
+        severity,
+        status: "new",
+        createdAt: ts,
+        updatedAt: ts,
+      });
+    }
+    for (const action of actions) {
+      await ctx.db.insert("actionItems", {
+        siteId,
+        alertId,
+        title: action,
+        assignee: "Crew",
+        priority: severity === "critical" ? "urgent" : "routine",
+        status: "open",
+        createdAt: ts,
+      });
+    }
+    return alertId;
+  },
+});
