@@ -331,6 +331,7 @@ describe("context retrieval (§17)", () => {
       edges, nodes, anchors: ["asset-pump"], template: POLICIES.asset_history, scope: crewScope, now: NOW,
     });
     const ids = items.map((i) => i.node_id);
+    console.log("SWAP RESULT:", ids.slice(0,12).join(","));
     expect(ids).not.toContain("ep-old");
     expect(ids).not.toContain("ep-old2");
     expect(ids).toContain("ep-new");

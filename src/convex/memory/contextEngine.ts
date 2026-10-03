@@ -55,9 +55,11 @@ const COMMON: Record<string, Template> = {
     intent: "fault_help",
     anchor: "machine",
     steps: [
-      { from: "anchor", edges: ["CONTAINS"], limit: 8 },
-      { from: "component", edges: ["HAD"], limit: 12, order: "recency", where: { notSuperseded: true, assetActive: true, sameSiteAsAnchor: true } },
-      { from: "machine", resetToAnchor: true, edges: ["HAD"], limit: 12, order: "recency", where: { notSuperseded: true, assetActive: true, sameSiteAsAnchor: true } },
+      // Machine -> components (assetActive drops replaced/removed pumps, so old
+      // pump events never enter the fix-help manifest).
+      { from: "anchor", edges: ["CONTAINS"], limit: 8, where: { notSuperseded: true, assetActive: true, sameSiteAsAnchor: true } },
+      // Component -> its incident episodes, then -> signatures -> fix cards.
+      { from: "component", edges: ["HAD"], limit: 12, order: "recency", where: { assetActive: true } },
       { from: "episodes", edges: ["MATCHES"], limit: 5 },
       { from: "signatures", edges: ["FIX_FOR"], limit: 6, where: { notRetired: true } },
       { from: "fix_cards", edges: ["EVIDENCED_BY"], limit: 8, where: { notRetired: true } },
@@ -70,9 +72,8 @@ const COMMON: Record<string, Template> = {
     intent: "asset_history",
     anchor: "machine",
     steps: [
-      { from: "anchor", edges: ["CONTAINS"], limit: 10 },
-      { from: "component", edges: ["HAD"], limit: 12, order: "recency", where: { notSuperseded: true, assetActive: true } },
-      { from: "machine", resetToAnchor: true, edges: ["HAD"], limit: 20, order: "recency", where: { notSuperseded: true, assetActive: true } },
+      { from: "anchor", edges: ["CONTAINS"], limit: 10, where: { notSuperseded: true, assetActive: true } },
+      { from: "component", edges: ["HAD"], limit: 12, order: "recency", where: { assetActive: true } },
       { from: "episodes", edges: ["MATCHES"], limit: 6 },
       { from: "signatures", edges: ["FIX_FOR"], limit: 4, where: { notRetired: true } },
     ],
@@ -240,7 +241,9 @@ export function traverse(input: {
         .filter((a) => byNode(a))
         .map((a) => ({ id: a, siteId: byNode(a)?.props?.siteId, path: [], depth: 0, baseScore: 1 }));
     }
-    const next: typeof frontier = [];
+    // Anchor steps keep their starting nodes in the frontier (they are already
+    // in the manifest as "query anchor") and only add what the anchor contains.
+    const next: typeof frontier = step.from === "anchor" ? frontier.slice() : [];
     for (const f of frontier) {
       const fType = byNode(f.id)?.type;
       const wantType = fromType(step.from);
@@ -252,6 +255,10 @@ export function traverse(input: {
         // (e.g. signature →fix cards via FIX_FOR). Match both directions.
         let nextId: string;
         let occurredAt: number | undefined;
+        // Anchors walk forward only: a machine anchor finds what IT contains
+        // (its components/incidents), never what contains it. Other steps may
+        // walk an edge in either direction (e.g. signature -> fix card via FIX_FOR).
+        if (isAnchorStart && e.targetId === f.id) continue;
         if (e.sourceId === f.id) {
           nextId = e.targetId;
           occurredAt = e.occurredAt;
@@ -263,9 +270,8 @@ export function traverse(input: {
         if (!target) continue;
         if (template.never_include.includes(target.type)) continue;
         if (focus && target.type === "episode" && target.props?.signatureId && target.props.signatureId !== focus) continue;
-        if (!passesWhere(step, nextId, f.depth + 1, f.siteId)) continue;
-        if (items.has(nextId)) continue;
-        const score =
+        if (!passesWhere(step, nextId, f.depth + 1, f.siteId)) continue;        if (items.has(nextId)) continue;
+        const score = 
           (EDGE_WEIGHTS[e.edgeType] ?? 0.5) * Math.pow(decay, f.depth) *
           recencyFactor(occurredAt ?? target.props?.occurredAt as number | undefined, now);
         items.set(nextId, {
@@ -393,7 +399,8 @@ export function packManifest(items: ManifestItem[], nodes: Map<string, GNode>, n
       bits.push(days <= 0 ? "today" : `${days}d ago`);
     }
     if (n.props?.siteAlias) bits.push(String(n.props.siteAlias));
-    if (n.props?.summary) bits.push(String(n.props.summary));
+    // Redacted crew items have their summary withheld (it may name the site)
+    if (!it.redacted && n.props?.summary) bits.push(String(n.props.summary));
     const suffix = bits.length ? ` (${bits.join(" · ")})` : "";
     lines.push(`- [${n.type}] ${n.label}${suffix}${it.redacted ? " {redacted}" : ""}`);
   }
