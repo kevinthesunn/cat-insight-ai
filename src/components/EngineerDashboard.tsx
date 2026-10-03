@@ -4,9 +4,10 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
-  ChevronRight, GitBranch, Loader2, MessageCircleQuestion, Wrench,
+  ChevronRight, GitBranch, Loader2, MessageCircleQuestion, Network, Wrench,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import { timeAgo } from "@/components/shared";
 
@@ -72,19 +73,27 @@ export default function EngineerDashboard({ role }: { role: Role }) {
             {isEngineer ? "Pattern inbox" : "Site issues"}
           </h1>
         </div>
-        <div className="flex rounded-lg border border-border bg-card p-1">
-          <button
-            onClick={() => setTab("patterns")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === "patterns" ? "bg-secondary shadow-soft" : "text-muted-foreground"}`}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-border bg-card p-1">
+            <button
+              onClick={() => setTab("patterns")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === "patterns" ? "bg-secondary shadow-soft" : "text-muted-foreground"}`}
+            >
+              <GitBranch className="size-4" /> Patterns
+            </button>
+            <button
+              onClick={() => setTab("ask")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === "ask" ? "bg-secondary shadow-soft" : "text-muted-foreground"}`}
+            >
+              <MessageCircleQuestion className="size-4" /> Ask memory
+            </button>
+          </div>
+          <Link
+            to="/graph"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium shadow-soft transition-colors hover:border-amber-400/60"
           >
-            <GitBranch className="size-4" /> Patterns
-          </button>
-          <button
-            onClick={() => setTab("ask")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === "ask" ? "bg-secondary shadow-soft" : "text-muted-foreground"}`}
-          >
-            <MessageCircleQuestion className="size-4" /> Ask memory
-          </button>
+            <Network className="size-4" /> Knowledge graph
+          </Link>
         </div>
       </div>
 
